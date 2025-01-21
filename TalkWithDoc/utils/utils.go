@@ -4,6 +4,18 @@ import (
 	"encoding/json"
 	"net/http"
 )
+const (
+	ValidationPromptTemplate=`You are a helpful assistant tasked with evaluating the relevance of answers to questions based on provided context.
+
+							Context: %s
+
+							Question: %s
+
+							Answer: %s
+
+							Is the answer relevant to the question in the given context? Respond with only "Yes" or "No".`
+)
+
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Access-Control-Allow-Origin", "*")

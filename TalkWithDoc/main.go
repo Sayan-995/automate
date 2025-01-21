@@ -2,11 +2,10 @@ package main
 
 import (
 	"os"
-
 	server "github.com/Sayan-995/automate/server"
+	"github.com/joho/godotenv"
 	"github.com/unidoc/unipdf/v3/common"
 	"github.com/unidoc/unipdf/v3/common/license"
-	"github.com/joho/godotenv"
 )
 func init() {
 	godotenv.Load()

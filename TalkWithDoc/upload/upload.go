@@ -1,12 +1,16 @@
 package upload
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"path/filepath"
+
+	twd "github.com/Sayan-995/automate/Twd"
+	mod "github.com/Sayan-995/automate/model"
+	"github.com/Sayan-995/automate/utils"
+	u "github.com/Sayan-995/automate/utils"
 	"github.com/unidoc/unipdf/v3/extractor"
 	"github.com/unidoc/unipdf/v3/model"
-	u "github.com/Sayan-995/automate/utils"
 )
 
 const(
@@ -45,7 +49,24 @@ func HandleUploadPdf(w http.ResponseWriter,r *http.Request)error{
 		if err!=nil{
 			return err
 		}
-		fmt.Printf("%v",text);
+		twd.AddText(text)
 	}
-	return nil
+	return u.WriteJSON(w, http.StatusOK, "PDF uploaded successfully")
+}
+func HandleUploadQuestion(w http.ResponseWriter, r *http.Request)error{
+	var question string
+	err:=json.NewDecoder(r.Body).Decode(&question)
+	if(err!=nil){
+		return err
+	}
+	twd.AddQuestion(question)
+	res,err:=mod.CreateRunable(twd.G)
+	if(err!=nil){
+		return err
+	}
+	ans,err:=res.Invoke(twd.G)
+	if(err!=nil){
+		return err
+	}
+	return utils.WriteJSON(w,http.StatusOK,ans)
 }
