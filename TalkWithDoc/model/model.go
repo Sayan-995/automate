@@ -41,6 +41,8 @@ func (g *GraphState)ValidateAnswer(question ,context,answer string)(bool,error){
 		return false,err;
 	}
 	defer client.Close()
+	fmt.Println(context);
+	fmt.Println(answer)
 	model := client.GenerativeModel("gemini-1.5-flash")
 	res,err:=model.GenerateContent(g.Context,genai.Text(fmt.Sprintf(utils.ValidationPromptTemplate,context,question,answer)))
 	if err!= nil {

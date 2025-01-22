@@ -36,6 +36,7 @@ func HandleUploadPdf(w http.ResponseWriter,r *http.Request)error{
 	if err!=nil{
 		return err
 	}
+	var totText string
 	for i:=1;i<=numPages;i++{
 		page,err:=pdfReader.GetPage(i)
 		if err!=nil{
@@ -49,8 +50,9 @@ func HandleUploadPdf(w http.ResponseWriter,r *http.Request)error{
 		if err!=nil{
 			return err
 		}
-		twd.AddText(text)
+		totText+=text
 	}
+	twd.AddText(totText)
 	return u.WriteJSON(w, http.StatusOK, "PDF uploaded successfully")
 }
 func HandleUploadQuestion(w http.ResponseWriter, r *http.Request)error{
