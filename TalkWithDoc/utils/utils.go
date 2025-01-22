@@ -13,7 +13,8 @@ const (
 
 							Answer: %s
 
-							Is the answer relevant to the question in the given context? Respond with only "Yes" or "No".`
+							Is the answer relevant to the question in the given context? Respond with only "Yes" or "No".
+							Dont be Too much strict , if the answer is close enough of question then respond with Yes`
 )
 
 
