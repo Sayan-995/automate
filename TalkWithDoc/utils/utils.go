@@ -15,6 +15,15 @@ const (
 
 							Is the answer relevant to the question in the given context? Respond with only "Yes" or "No".
 							Dont be Too much strict , if the answer is close enough of question then respond with Yes`
+	QuestionAnsweringPromptTemplate=`You are an AI assistant. Answer the following question based strictly on the provided context.
+									 Do not include any information outside the context or assume anything not explicitly stated.
+									 And Also do not include any text except the answer itself
+									Context:
+									%s
+
+									Question:
+									%s
+									`
 )
 
 

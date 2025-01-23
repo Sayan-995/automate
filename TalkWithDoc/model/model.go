@@ -11,7 +11,6 @@ import (
 
 	utils "github.com/Sayan-995/automate/utils"
 	"github.com/google/generative-ai-go/genai"
-	"github.com/hupe1980/go-huggingface"
 	"github.com/joho/godotenv"
 	"github.com/philippgille/chromem-go"
 	"github.com/tmc/langchaingo/textsplitter"
@@ -32,7 +31,7 @@ type GraphState struct{
 	Question string
 	GeneratedAnswer string
 	Document string
-	Model  *huggingface.InferenceClient
+	Model  *genai.GenerativeModel
 	Context context.Context
 }
 func (g *GraphState)ValidateAnswer(question ,context,answer string)(bool,error){
@@ -42,6 +41,7 @@ func (g *GraphState)ValidateAnswer(question ,context,answer string)(bool,error){
 	}
 	defer client.Close()
 	fmt.Println(context);
+	fmt.Println("Answer");
 	fmt.Println(answer)
 	model := client.GenerativeModel("gemini-1.5-flash")
 	res,err:=model.GenerateContent(g.Context,genai.Text(fmt.Sprintf(utils.ValidationPromptTemplate,context,question,answer)))
@@ -63,22 +63,26 @@ func (g *GraphState)ValidateAnswer(question ,context,answer string)(bool,error){
 	return false,fmt.Errorf("error while validating")
 }
 func (g *GraphState)GenerateAnswer()error{
-	res,err:=g.Model.QuestionAnswering(g.Context,&huggingface.QuestionAnsweringRequest{
-		Inputs: huggingface.QuestionAnsweringInputs{
-			Question: g.Question,
-			Context: g.Document,
-		},
-	})
+	res,err:=g.Model.GenerateContent(g.Context,genai.Text(fmt.Sprintf(utils.QuestionAnsweringPromptTemplate,g.Document,g.Question)))
 	if(err!=nil){
 		return err
 	}
 	var ans string
-	Ok,err:=g.ValidateAnswer(g.Question,g.Document,res.Answer);
+	var GenAns string;
+	for _,cand:=range(res.Candidates){
+		if(cand.Content!=nil){
+			for _,part:=range(cand.Content.Parts){
+				tans:=fmt.Sprintf("%s",part)
+				GenAns+=tans
+			}
+		}
+	}
+	Ok,err:=g.ValidateAnswer(g.Question,g.Document,GenAns);
 	if err!=nil{
 		return err
 	}
 	if(Ok){
-		ans=res.Answer
+		ans=GenAns
 	}else{
 		ans="The question is irrelevent to the document"
 	}
@@ -86,7 +90,11 @@ func (g *GraphState)GenerateAnswer()error{
 	return nil
 }
 func (g *GraphState)CreateModel()error{
-	model := huggingface.NewInferenceClient(os.Getenv("HUGGINGFACEHUB_API_TOKEN"))
+	client,err:=genai.NewClient(g.Context,option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
+	if(err!=nil){
+		return err
+	}
+	model:=client.GenerativeModel("gemini-1.5-flash")
 	g.Model=model
 	return nil
 }
@@ -96,19 +104,20 @@ func (g *GraphState)RetriveDocs()error{
 		return err
 	}
 	res,err:=c.Query(g.Context,g.Question,1,nil,nil)
+	text:=res[0].Content
 	if err!=nil{
 		return err
 	}
-	g.Document=res[0].Content
+	g.Document=text
 	return nil
 }
 func (g *GraphState) BuildVectorStore(Text string)(*chromem.Collection,error){
 	ctx:=g.Context
 	splitter:=textsplitter.NewMarkdownTextSplitter(
-		textsplitter.WithChunkSize(200),
-		textsplitter.WithChunkOverlap(40),
-		textsplitter.WithCodeBlocks(true),
-		textsplitter.WithHeadingHierarchy(true),
+		textsplitter.WithChunkSize(512),
+		textsplitter.WithChunkOverlap(50),
+		textsplitter.WithCodeBlocks(false),
+		textsplitter.WithHeadingHierarchy(false),
 	)
 	splittedText,err:=splitter.SplitText(Text)
 	if(err!=nil){
@@ -122,7 +131,10 @@ func (g *GraphState) BuildVectorStore(Text string)(*chromem.Collection,error){
 			Content: splittedText[i],
 		})
 	}
-	c, err := db.CreateCollection("knowledge-base", nil,chromem.NewEmbeddingFuncJina(os.Getenv("JINA_API_KEY"),"jina-clip-v2") )
+	//emb_36abc431baf8bc70098f3bb9a8733e6ccb83e3c11971cfc6
+	// chromem.NewEmbeddingFuncMixedbread("emb_989891ce41f83258ffec8d617c325b08e4300cca5b4df0a1","mixedbread-ai/mxbai-embed-large-v1")
+	c, err := db.CreateCollection("knowledge-base", nil,
+	chromem.NewEmbeddingFuncMixedbread("emb_989891ce41f83258ffec8d617c325b08e4300cca5b4df0a1","mixedbread-ai/mxbai-embed-large-v1") )
 	if err != nil {
 		panic(err)
 	}

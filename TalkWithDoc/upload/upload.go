@@ -2,6 +2,7 @@ package upload
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path/filepath"
 
@@ -37,6 +38,7 @@ func HandleUploadPdf(w http.ResponseWriter,r *http.Request)error{
 		return err
 	}
 	var totText string
+	fmt.Println(numPages)
 	for i:=1;i<=numPages;i++{
 		page,err:=pdfReader.GetPage(i)
 		if err!=nil{
@@ -52,6 +54,7 @@ func HandleUploadPdf(w http.ResponseWriter,r *http.Request)error{
 		}
 		totText+=text
 	}
+	fmt.Println(totText)
 	twd.AddText(totText)
 	return u.WriteJSON(w, http.StatusOK, "PDF uploaded successfully")
 }
