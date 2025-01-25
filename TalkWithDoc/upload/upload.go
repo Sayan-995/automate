@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	// "io/ioutil"
 	// "os"
 	"strings"
 
@@ -116,27 +116,29 @@ func HandleGetImportantWords(w http.ResponseWriter, r *http.Request) error {
 	io.Copy(part, file)
 	writer.WriteField("sentences", strings.Join(sentences, ","))
 	writer.Close()
-	req, err := http.NewRequest("POST", "https://test-production-3826.up.railway.app/highlight-pdf", body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	
+    req, err := http.NewRequest("POST", "https://test-production-3826.up.railway.app/highlight-pdf", body)
+    if err != nil {
+        return err
+    }
+    req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	// Send request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
 
-	// Read response
-	responseBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
+    // Direct PDF download
+    w.Header().Set("Content-Type", "application/pdf")
+    w.Header().Set("Content-Disposition", "attachment; filename=highlighted.pdf")
+    
+    _, err = io.Copy(w, resp.Body)
+    if err!=nil{
+		return err;
 	}
-	fmt.Println(responseBody)
-	return u.WriteJSON(w, http.StatusOK, "PDF uploaded successfully")
+	return u.WriteJSON(w,http.StatusOK,"pdf highlighted successfully")
 }
 
 func HandleUploadQuestion(w http.ResponseWriter, r *http.Request)error{

@@ -32,14 +32,14 @@
             text-align: center;
         }
 
-        .upload-section, .question-section {
+        .upload-section, .question-section, .mark-section {
             margin-bottom: 2rem;
             padding: 1rem;
             border: 2px dashed #bdc3c7;
             border-radius: 5px;
         }
 
-        .question-section {
+        .question-section, .mark-section {
             display: none;
         }
 
@@ -61,6 +61,7 @@
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s;
+            margin-right: 0.5rem;
         }
 
         button:hover {
@@ -80,7 +81,7 @@
             border-radius: 5px;
         }
 
-        .answer-section {
+        .answer-section, .marked-points-section {
             margin-top: 2rem;
             padding: 1rem;
             background-color: #f8f9fa;
@@ -100,6 +101,11 @@
             margin: 1rem 0;
             display: none;
         }
+
+        .marked-points {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
     </style>
 </head>
 <body>
@@ -110,6 +116,16 @@
             <input type="file" id="pdfInput" accept=".pdf" />
             <button id="uploadBtn">Upload PDF</button>
             <div class="status" id="uploadStatus"></div>
+        </div>
+
+        <div class="mark-section" id="markSection">
+            <button id="markBtn">Mark Important Points</button>
+            <div class="status" id="markStatus"></div>
+        </div>
+
+        <div class="marked-points-section" id="markedPointsSection">
+            <h3>Marked Important Points:</h3>
+            <pre class="marked-points" id="markedPointsText"></pre>
         </div>
 
         <div class="question-section" id="questionSection">
@@ -131,10 +147,13 @@
         const API_URL = 'https://automate-production.up.railway.app';
         const uploadSection = document.getElementById('uploadSection');
         const questionSection = document.getElementById('questionSection');
-        const answerSection = document.getElementById('answerSection');
+        const markSection = document.getElementById('markSection');
+        const markedPointsSection = document.getElementById('markedPointsSection');
         const uploadStatus = document.getElementById('uploadStatus');
         const questionStatus = document.getElementById('questionStatus');
+        const markStatus = document.getElementById('markStatus');
         const errorMessage = document.getElementById('errorMessage');
+        let uploadedFile = null;
 
         document.getElementById('uploadBtn').addEventListener('click', async () => {
             const fileInput = document.getElementById('pdfInput');
@@ -147,6 +166,7 @@
 
             const formData = new FormData();
             formData.append('pdf', file);
+            uploadedFile = file;
 
             uploadStatus.textContent = 'Uploading PDF...';
             
@@ -161,11 +181,52 @@
                 }
 
                 uploadStatus.textContent = 'PDF uploaded successfully!';
+                markSection.style.display = 'block';
                 questionSection.style.display = 'block';
                 hideError();
             } catch (error) {
                 showError('Failed to upload PDF: ' + error.message);
                 uploadStatus.textContent = '';
+            }
+        });
+
+        document.getElementById('markBtn').addEventListener('click', async () => {
+            if (!uploadedFile) {
+                showError('Please upload a PDF first');
+                return;
+            }
+        
+            const formData = new FormData();
+            formData.append('pdf', uploadedFile);
+        
+            markStatus.textContent = 'Marking important points...';
+            
+            try {
+                const response = await fetch(`${API_URL}/mark`, {
+                    method: 'POST',
+                    body: formData
+                });
+        
+                if (!response.ok) {
+                    throw new Error('Marking failed');
+                }
+        
+                // If it's a PDF file response, trigger download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'highlighted.pdf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+        
+                markStatus.textContent = 'PDF highlighted and downloaded!';
+                hideError();
+            } catch (error) {
+                showError('Failed to mark points: ' + error.message);
+                markStatus.textContent = '';
             }
         });
 
@@ -194,7 +255,7 @@
 
                 const answer = await response.json();
                 document.getElementById('answerText').textContent = answer;
-                answerSection.style.display = 'block';
+                document.getElementById('answerSection').style.display = 'block';
                 questionStatus.textContent = '';
                 hideError();
             } catch (error) {
