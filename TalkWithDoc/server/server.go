@@ -38,6 +38,7 @@ func (s *server)RunServer(){
 	myRouter:=mux.NewRouter().StrictSlash(true)
     myRouter.Use(corsMiddleware)
 	myRouter.HandleFunc("/upload",utils.GenerateHandleFunc(upload.HandleUploadPdf))
+	myRouter.HandleFunc("/mark",utils.GenerateHandleFunc(upload.HandleGetImportantWords))
 	myRouter.HandleFunc("/ask",utils.GenerateHandleFunc(upload.HandleUploadQuestion))
 	myRouter.HandleFunc("/",utils.GenerateHandleFunc(hello))
 	log.Fatal(http.ListenAndServe(s.listenAddress,myRouter))	

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF Sentence Highlighter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        input, textarea, button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        #status {
+            margin-top: 20px;
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF Sentence Highlighter</h1>
+        <form id="highlightForm">
+            <input type="file" id="pdfFile" accept=".pdf" required>
+            <textarea id="sentences" placeholder="Enter sentences to highlight (one per line)" required></textarea>
+            <button type="submit">Highlight PDF</button>
+        </form>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        document.getElementById('highlightForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const statusDiv = document.getElementById('status');
+            const pdfFile = document.getElementById('pdfFile').files[0];
+            const sentencesText = document.getElementById('sentences').value;
+            
+            // Split sentences, removing empty lines
+            const sentences = sentencesText.split('\n').filter(s => s.trim() !== '');
+
+            const formData = new FormData();
+            formData.append('pdf', pdfFile);
+            formData.append('sentences', JSON.stringify(sentences));
+
+            try {
+                statusDiv.textContent = 'Processing...';
+                const response = await fetch('https://test-production-3826.up.railway.app/highlight-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'highlighted.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    statusDiv.textContent = 'PDF downloaded successfully!';
+                } else {
+                    const errorData = await response.json();
+                    statusDiv.textContent = `Error: ${errorData.error}`;
+                }
+            } catch (error) {
+                statusDiv.textContent = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

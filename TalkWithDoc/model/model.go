@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	utils "github.com/Sayan-995/automate/utils"
 	"github.com/google/generative-ai-go/genai"
@@ -20,6 +22,7 @@ func init(){
 	godotenv.Load()
 }
 const END = "END"
+const isNormalizedPrecisionTolerance = 1e-6
 var (
 	ErrEntryPointNotSet = errors.New("entry point not set")
 	ErrNodeNotFound = errors.New("node not found")
@@ -33,6 +36,7 @@ type GraphState struct{
 	Document string
 	Model  *genai.GenerativeModel
 	Context context.Context
+	Collection *chromem.Collection
 }
 func (g *GraphState)ValidateAnswer(question ,context,answer string)(bool,error){
 	client,err:=genai.NewClient(g.Context,option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
@@ -99,30 +103,93 @@ func (g *GraphState)CreateModel()error{
 	return nil
 }
 func (g *GraphState)RetriveDocs()error{
-	c,err:=g.BuildVectorStore(g.Text)
-	if(err!=nil){
-		return err
-	}
-	res,err:=c.Query(g.Context,g.Question,1,nil,nil)
-	text:=res[0].Content
+	res,err:=g.Collection.Query(g.Context,g.Question,3,nil,nil)
+	text:=res[0].Content+"\n"+res[1].Content+"\n"+res[2].Content;
 	if err!=nil{
 		return err
 	}
 	g.Document=text
 	return nil
 }
+func isNormalized(v []float32) bool {
+	var sqSum float64
+	for _, val := range v {
+		sqSum += float64(val) * float64(val)
+	}
+	magnitude := math.Sqrt(sqSum)
+	return math.Abs(magnitude-1) < isNormalizedPrecisionTolerance
+}
+func normalizeVector(v []float32) []float32 {
+	var norm float32
+	for _, val := range v {
+		norm += val * val
+	}
+	norm = float32(math.Sqrt(float64(norm)))
+
+	res := make([]float32, len(v))
+	for i, val := range v {
+		res[i] = val / norm
+	}
+
+	return res
+}
+type ollamaResponse struct {
+	Embedding []float32 `json:"embedding"`
+}
+
+func NewEmbeddingFuncGemini() chromem.EmbeddingFunc {
+	var checkedNormalized bool
+	checkNormalized := sync.Once{}
+	// client,err:=genai.NewClient(context.Background(),option.WithAPIKey(os.Getenv("GEMINI_API_KEY")));
+	return func(ctx context.Context, text string) ([]float32, error) {
+		client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer client.Close()
+
+		em := client.EmbeddingModel("text-embedding-004")
+		res, err := em.EmbedContent(ctx, genai.Text(text))
+		if err!=nil{
+			fmt.Println(err)
+		}
+		// fmt.Println(res.Embedding.Values)
+		embeddingResponse:= ollamaResponse{
+			Embedding: res.Embedding.Values,
+		}
+		// Check if the response contains embeddings.
+		if len(embeddingResponse.Embedding) == 0 {
+			return nil, errors.New("no embeddings found in the response")
+		}
+
+		v := embeddingResponse.Embedding
+		checkNormalized.Do(func() {
+			if isNormalized(v) {
+				checkedNormalized = true
+			} else {
+				checkedNormalized = false
+			}
+		})
+		if !checkedNormalized {
+			v = normalizeVector(v)
+		}
+
+		return v, nil
+	}
+}
 func (g *GraphState) BuildVectorStore(Text string)(*chromem.Collection,error){
 	ctx:=g.Context
 	splitter:=textsplitter.NewMarkdownTextSplitter(
-		textsplitter.WithChunkSize(512),
-		textsplitter.WithChunkOverlap(50),
-		textsplitter.WithCodeBlocks(false),
-		textsplitter.WithHeadingHierarchy(false),
+		textsplitter.WithChunkSize(200),
+		textsplitter.WithChunkOverlap(40),
+		textsplitter.WithCodeBlocks(true),
+		textsplitter.WithHeadingHierarchy(true),
 	)
 	splittedText,err:=splitter.SplitText(Text)
 	if(err!=nil){
 		return nil,err
 	}
+	fmt.Println(len(splittedText))
 	db:=chromem.NewDB()
 	var doc []chromem.Document
 	for i:=0;i<len(splittedText);i++{
@@ -131,14 +198,17 @@ func (g *GraphState) BuildVectorStore(Text string)(*chromem.Collection,error){
 			Content: splittedText[i],
 		})
 	}
+	//ikkxUZHDi7KGLJD1Oakt1zVsHCwK1rls
 	//emb_36abc431baf8bc70098f3bb9a8733e6ccb83e3c11971cfc6
 	// chromem.NewEmbeddingFuncMixedbread("emb_989891ce41f83258ffec8d617c325b08e4300cca5b4df0a1","mixedbread-ai/mxbai-embed-large-v1")
-	c, err := db.CreateCollection("knowledge-base", nil,
-	chromem.NewEmbeddingFuncMixedbread("emb_989891ce41f83258ffec8d617c325b08e4300cca5b4df0a1","mixedbread-ai/mxbai-embed-large-v1") )
+	// c, err := db.CreateCollection("knowledge-base", nil,
+	// chromem.NewEmbeddingFuncMixedbread("emb_989891ce41f83258ffec8d617c325b08e4300cca5b4df0a1","mixedbread-ai/mxbai-embed-large-v1") )
+	c, err := db.CreateCollection("knowledge-base", nil,NewEmbeddingFuncGemini())
 	if err != nil {
 		panic(err)
 	}
 	err=c.AddDocuments(ctx,doc,runtime.NumCPU())
+	fmt.Println(err)
 	if err!=nil{
 		return nil,err
 	}
