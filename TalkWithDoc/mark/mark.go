@@ -27,10 +27,11 @@ func GetImportentWords(text string)([]string,error){
 	rule:=textrank.NewDefaultRule()
 	language:=textrank.NewDefaultLanguage()
 	algo:=textrank.NewChainAlgorithm()
-	Populate(tr,text,language,rule)
+	// Populate(tr,text,language,rule)
+	tr.Populate(text,language,rule)
 	tr.Ranking(algo)
 	fmt.Println(SentenceCount)
-	sentences := textrank.FindSentencesByRelationWeight(tr, (3*SentenceCount)/20)
+	sentences := textrank.FindSentencesByRelationWeight(tr, 30)
 	var values []string
 	for _,lines:=range(sentences){
 		// fmt.Println("done ")

@@ -63,7 +63,7 @@ func HandleUploadPdf(w http.ResponseWriter, r *http.Request) error {
 		totText += text
 	}
 	fmt.Println(totText)
-	mark.GetImportentWords(totText)
+	// mark.GetImportentWords(totText)
 	twd.AddText(totText)
 	twd.G.Collection,err=twd.G.BuildVectorStore(totText)
 	if err!=nil{
@@ -101,6 +101,7 @@ func HandleGetImportantWords(w http.ResponseWriter, r *http.Request) error {
 		}
 		totText += text
 	}
+	fmt.Println(totText)
 	sentences,err:=mark.GetImportentWords(totText)
 	if(err!=nil){
 		return err
