@@ -20,9 +20,6 @@ import (
 	mod "github.com/Sayan-995/automate/model"
 	"github.com/Sayan-995/automate/utils"
 	u "github.com/Sayan-995/automate/utils"
-
-	// "github.com/unidoc/unipdf/v3/extractor"
-	// "github.com/unidoc/unipdf/v3/model"
 	"github.com/ledongthuc/pdf"
 )
 
